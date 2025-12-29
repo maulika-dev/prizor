@@ -1,212 +1,307 @@
 import React, { useMemo, useRef, useState } from 'react';
 import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  TextInput,
-  View,
+	KeyboardAvoidingView,
+	Platform,
+	ScrollView,
+	StatusBar,
+	StyleSheet,
+	TextInput,
+	View,
+	TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft } from 'lucide-react-native';
-
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { sendLoginOtp, verifyOtpAndSetPassword } from '../api/authApi';
 import ThemedButton from '../components/ThemedButton';
 import ThemedText from '../components/ThemedText';
 import { useThemeColors } from '../theme/useTheme';
+import { RootRoutes, RootStackParamList } from '../navigation/routes';
+import { setAuthToken } from '../store/authStore';
+import { resetToAddTab } from '../navigation/navigationRef';
 
-type OtpScreenProps = {
-  mobile: string;
-  onBack: () => void;
-  onVerify: (otp: string) => void;
-};
+type OtpScreenProps = NativeStackScreenProps<RootStackParamList, RootRoutes.Otp>;
 
 const OTP_LENGTH = 6;
 
-const OtpScreen: React.FC<OtpScreenProps> = ({ mobile, onBack, onVerify }) => {
-  const colors = useThemeColors();
-  const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(''));
-  const inputs = useRef<Array<TextInput | null>>([]);
-  const styles = useMemo(() => createStyles(colors), [colors]);
+const OtpScreen: React.FC<OtpScreenProps> = ({ navigation, route }) => {
+	const colors = useThemeColors();
+	const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(''));
+	const inputs = useRef<Array<TextInput | null>>([]);
+	const styles = useMemo(() => createStyles(colors), [colors]);
+	const { mobile } = route.params;
+	const [resendLoading, setResendLoading] = useState(false);
+	const [loading, setLoading] = useState(false);
+	const [secondsLeft, setSecondsLeft] = useState(120);
+	const [error, setError] = useState<string | null>(null);
 
-  const handleChange = (value: string, index: number) => {
-    const sanitized = value.replace(/\D/g, '').slice(-1);
-    const nextOtp = [...otp];
-    nextOtp[index] = sanitized;
-    setOtp(nextOtp);
+	const handleChange = (value: string, index: number) => {
+		const sanitized = value.replace(/\D/g, '').slice(-1);
+		const nextOtp = [...otp];
+		nextOtp[index] = sanitized;
+		setOtp(nextOtp);
 
-    if (sanitized && index < OTP_LENGTH - 1) {
-      inputs.current[index + 1]?.focus();
-    }
-  };
+		if (sanitized && index < OTP_LENGTH - 1) {
+			inputs.current[index + 1]?.focus();
+		}
+	};
 
-  const handleBackspace = (index: number) => {
-    if (otp[index] === '' && index > 0) {
-      inputs.current[index - 1]?.focus();
-    }
-  };
+	const handleBackspace = (index: number) => {
+		if (otp[index] === '' && index > 0) {
+			inputs.current[index - 1]?.focus();
+		}
+	};
 
-  const joinedOtp = otp.join('');
-  const canVerify = joinedOtp.length === OTP_LENGTH;
+	const joinedOtp = otp.join('');
+	const canVerify = joinedOtp.length === OTP_LENGTH;
 
-  return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
-      <StatusBar barStyle="dark-content" />
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.select({ ios: 24, android: 0 })}>
-        <ScrollView contentContainerStyle={styles.content} bounces={false}>
-          <View style={styles.header}>
-            <ArrowLeft color={colors.text} size={26} strokeWidth={2.4} onPress={onBack} />
-          </View>
+	 const onResend = async () => {
+        if (resendLoading || loading || secondsLeft > 0) return;
 
-          <View style={styles.logoShell}>
-            <ThemedText variant="title" style={styles.brandText}>
-              PRIZOR
-            </ThemedText>
-            <ThemedText muted style={styles.tagline}>
-              The Future of Smart Living
-            </ThemedText>
-          </View>
+        try {
+            setResendLoading(true);
+            setError(null);
 
-          <View style={styles.card}>
-            <View style={styles.titleRow}>
-              <ThemedText variant="title">Enter OTP</ThemedText>
-              <View style={[styles.titleLine, { backgroundColor: colors.divider }]} />
-            </View>
+            await sendLoginOtp({
+                mobile,
+                type: 'register',
+            });
 
-            <ThemedText muted style={styles.sentText}>
-              OTP has been sent to{' '}
-              <ThemedText style={styles.boldText}>+91-{mobile}</ThemedText>
-            </ThemedText>
+            setSecondsLeft(120);
+            
+        } catch {
+            setError('Failed to resend OTP. Please try again.');
+        } finally {
+            setResendLoading(false);
+        }
+    };
 
-            <View style={styles.otpRow}>
-              {otp.map((digit, idx) => (
-                <TextInput
-                  key={idx}
-                  ref={ref => {
-                    inputs.current[idx] = ref;
-                  }}
-                  value={digit}
-                  onChangeText={val => handleChange(val, idx)}
-                  keyboardType="number-pad"
-                  maxLength={1}
-                  style={[
-                    styles.otpBox,
-                    {
-                      borderColor: digit ? colors.secondary : colors.divider,
-                    },
-                  ]}
-                  textAlign="center"
-                  onKeyPress={({ nativeEvent }) => {
-                    if (nativeEvent.key === 'Backspace') {
-                      handleBackspace(idx);
-                    }
-                  }}
-                />
-              ))}
-            </View>
+    const onSubmit = async () => {
+        if (otp.length < OTP_LENGTH) {
+            setError('Please enter the complete OTP');
+            return;
+        }
 
-            <View style={styles.timerRow}>
-              <ThemedText style={[styles.timerText, { color: colors.secondary }]}>
-                118s
-              </ThemedText>
-            </View>
+        try {
+            setLoading(true);
+            setError(null);
 
-            <ThemedButton
-              label="Verify"
-              onPress={() => onVerify(joinedOtp)}
-              disabled={!canVerify}
-              style={[styles.verifyButton, { backgroundColor: colors.secondary }]}
-            />
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
-  );
+            const res = await verifyOtpAndSetPassword({
+                otp,
+                mobile,
+                // email,
+            });
+
+            if (!res.success || !res.authToken) {
+                setError(res.message || 'OTP verification failed');
+                return;
+            }
+
+            if (res.authToken) {
+                await setAuthToken(res.authToken);
+            }
+
+            // resetToDevices();
+            resetToAddTab();
+        } catch {
+            setError('Something went wrong. Please try again.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+	return (
+		<SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
+			<StatusBar barStyle="dark-content" />
+			<KeyboardAvoidingView
+				style={styles.flex}
+				behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+				keyboardVerticalOffset={Platform.select({ ios: 24, android: 0 })}
+			>
+				<ScrollView contentContainerStyle={styles.content} bounces={false} keyboardShouldPersistTaps="handled">
+					{/* Top bar */}
+					<View style={styles.header}>
+						<TouchableOpacity onPress={() => navigation.goBack()} activeOpacity={0.7}>
+							<ArrowLeft color={colors.text} size={24} strokeWidth={2.4} />
+						</TouchableOpacity>
+					</View>
+
+					{/* Title + description */}
+					<View style={styles.titleBlock}>
+						<ThemedText variant="title" style={styles.titleText}>
+							Verify OTP
+						</ThemedText>
+
+						<ThemedText muted style={styles.subTitle}>
+							Enter the 6-digit code sent to
+						</ThemedText>
+
+						<ThemedText style={styles.phoneText}>
+							+91 {mobile}
+						</ThemedText>
+
+						<ThemedText muted style={styles.helperText}>
+							We sent a code to your mobile number.{'\n'}Please enter it below.
+						</ThemedText>
+					</View>
+
+					{/* OTP row */}
+					<View style={styles.otpRow}>
+						{otp.map((digit, idx) => (
+							<TextInput
+								key={idx}
+								ref={(ref) => {
+									inputs.current[idx] = ref;
+								}}
+								value={digit}
+								onChangeText={(val) => handleChange(val, idx)}
+								keyboardType="number-pad"
+								maxLength={1}
+								style={[
+									styles.otpBox,
+									{
+										borderColor: digit ?'#000' : 'rgba(0,0,0,0.08)',
+										color: colors.text,
+									},
+								]}
+								placeholder=" "
+								placeholderTextColor="transparent"
+								textAlign="center"
+								onKeyPress={({ nativeEvent }) => {
+									if (nativeEvent.key === 'Backspace') handleBackspace(idx);
+								}}
+							/>
+						))}
+					</View>
+
+					{/* Resend */}
+					<View style={styles.resendRow}>
+						<ThemedText muted style={styles.resendText}>
+							Didn&apos;t receive the code?{' '}
+						</ThemedText>
+						<TouchableOpacity onPress={onResend} activeOpacity={0.7}>
+							<ThemedText style={[styles.resendLink, { color: colors.text }]}>
+								Resend
+							</ThemedText>
+						</TouchableOpacity>
+					</View>
+
+					{/* Verify button */}
+					<ThemedButton
+						label="Verify"
+						onPress={() => navigation.navigate(RootRoutes.Devices)}
+						disabled={!canVerify}
+						style={[
+							styles.verifyButton,
+							{
+								backgroundColor: canVerify ? '#111' : 'rgba(0,0,0,0.25)',
+							},
+						]}
+					/>
+				</ScrollView>
+			</KeyboardAvoidingView>
+		</SafeAreaView>
+	);
 };
 
 const createStyles = (colors: ReturnType<typeof useThemeColors>) =>
-  StyleSheet.create({
-    safeArea: { flex: 1 },
-    flex: { flex: 1 },
-    content: {
-      paddingHorizontal: 20,
-      paddingBottom: 32,
-    },
-    header: {
-      paddingVertical: 12,
-      paddingHorizontal: 4,
-    },
-    logoShell: {
-      alignItems: 'center',
-      marginBottom: 10,
-    },
-    brandText: {
-      fontSize: 28,
-      fontWeight: '800',
-      letterSpacing: 0.5,
-    },
-    tagline: {
-      marginTop: 6,
-      fontSize: 14,
-    },
-    card: {
-      marginTop: 10,
-      backgroundColor: colors.surface,
-      borderRadius: 22,
-      padding: 20,
-      shadowColor: colors.cardShadow,
-      shadowOpacity: 0.12,
-      shadowRadius: 16,
-      shadowOffset: { width: 0, height: 10 },
-      elevation: 8,
-    },
-    titleRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: 16,
-    },
-    titleLine: {
-      flex: 1,
-      height: 1,
-      marginLeft: 10,
-    },
-    sentText: {
-      marginBottom: 18,
-      fontSize: 16,
-    },
-    boldText: {
-      fontWeight: '700',
-    },
-    otpRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      marginVertical: 10,
-    },
-    otpBox: {
-      width: 52,
-      height: 60,
-      borderWidth: 1,
-      borderRadius: 10,
-      fontSize: 22,
-      color: colors.text,
-      backgroundColor: colors.surface,
-    },
-    timerRow: {
-      alignItems: 'flex-end',
-      marginTop: 6,
-      marginBottom: 18,
-    },
-    timerText: {
-      fontSize: 14,
-      fontWeight: '600',
-    },
-    verifyButton: {
-      marginTop: 4,
-      borderRadius: 12,
-    },
-  });
+	StyleSheet.create({
+		safeArea: { flex: 1 },
+		flex: { flex: 1 },
+
+		content: {
+			paddingHorizontal: 22,
+			paddingBottom: 32,
+		},
+
+		header: {
+			paddingTop: 8,
+			paddingBottom: 10,
+		},
+
+		titleBlock: {
+			alignItems: 'center',
+			marginTop: 8,
+			marginBottom: 20,
+		},
+
+		titleText: {
+			fontSize: 35,
+			fontWeight: '600',
+			marginBottom: 10,
+		},
+
+		subTitle: {
+			fontSize: 13,
+			marginBottom: 10,
+		},
+
+		phoneText: {
+			fontSize: 18,
+			fontWeight: '700',
+			marginBottom: 10,
+		},
+
+		helperText: {
+			fontSize: 13,
+			textAlign: 'center',
+			lineHeight: 18,
+			opacity: 0.7,
+		},
+
+		otpRow: {
+			flexDirection: 'row',
+			justifyContent: 'space-between',
+			marginTop: 8,
+			marginBottom: 16,
+		},
+
+		otpBox: {
+			width: 44,
+			height: 46,
+			borderWidth: 1,
+			borderRadius: 10,
+			fontSize: 18,
+			fontWeight: '700',
+			backgroundColor: '#fff',
+
+			// soft shadow like reference
+			shadowColor: '#000',
+			shadowOpacity: 0.06,
+			shadowRadius: 10,
+			shadowOffset: { width: 0, height: 6 },
+			elevation: 3,
+		},
+
+		resendRow: {
+			flexDirection: 'row',
+			justifyContent: 'center',
+			alignItems: 'center',
+			marginBottom: 18,
+		},
+
+		resendText: {
+			fontSize: 12,
+			opacity: 0.75,
+		},
+
+		resendLink: {
+			fontSize: 12,
+			fontWeight: '800',
+		},
+
+		verifyButton: {
+			height: 54,
+			borderRadius: 28, // pill
+			justifyContent: 'center',
+			alignItems: 'center',
+
+			shadowColor: '#000',
+			shadowOpacity: 0.16,
+			shadowRadius: 18,
+			shadowOffset: { width: 0, height: 10 },
+			elevation: 8,
+		},
+	});
 
 export default OtpScreen;

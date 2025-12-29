@@ -1,129 +1,161 @@
 import React from 'react';
 import {
-	ImageBackground,
-	ScrollView,
-	StatusBar,
-	StyleSheet,
 	View,
+	Text,
+	TouchableOpacity,
+	StyleSheet,
+	StatusBar,
+	ImageBackground,
+	Dimensions,
+	Image
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Shield } from 'lucide-react-native';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-import ThemedButton from '../components/ThemedButton';
-import ThemedText from '../components/ThemedText';
-import { useThemeColors } from '../theme/useTheme';
+import { RootRoutes, RootStackParamList } from '../navigation/routes';
 
-type Props = {
-	onGetStarted: () => void;
-	onHaveAccount: () => void;
-};
+const { width, height } = Dimensions.get('window');
+import bgImg from "../../assets/img/wbg1.png";
+// import { Image } from 'react-native-svg';
+import logo from "../../assets/img/logo.png";
+type Props = NativeStackScreenProps<RootStackParamList, RootRoutes.Welcome>;
 
-const heroImage =
-	'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=1200&q=80';
-
-const WelcomeScreen: React.FC<Props> = ({ onGetStarted, onHaveAccount }) => {
-	const colors = useThemeColors();
+export default function WelcomeScreen({ navigation }: Props) {
+	const handleNext = () => {
+		navigation.navigate(RootRoutes.Login);
+	};
 
 	return (
-		<SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-			<StatusBar barStyle="dark-content" />
-			<ScrollView
-				contentContainerStyle={styles.scrollContent}
-				bounces={false}
-				showsVerticalScrollIndicator={false}>
-				<View style={styles.heroContainer}>
-					<ImageBackground
-						source={{ uri: heroImage }}
-						style={styles.heroImage}
-						resizeMode="cover"
-					/>
+		<View style={styles.container}>
+			<StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+
+			{/* Full Screen Background Image */}
+			<ImageBackground
+				source={bgImg}
+				style={styles.backgroundImage}
+				resizeMode="cover"
+			>
+				{/* Overlay Gradient for better text readability */}
+				<View style={styles.overlay}>
+
+					{/* Content Overlay */}
+					<SafeAreaView style={styles.safeArea}>
+						<View style={styles.contentContainer}>
+
+							{/* Spacer to push content to bottom */}
+							<View style={styles.spacer} />
+
+							{/* Text Content */}
+							<View style={styles.textContainer}>
+								{/* <Text style={styles.title}>Welcome to</Text> */}
+								<Image style={styles.logo} source={logo} />
+								{/* <Text style={styles.subtitle}>Prizor</Text> */}
+								
+							</View>
+
+							{/* Next Button */}
+							<TouchableOpacity
+								style={styles.nextButton}
+								onPress={handleNext}
+								activeOpacity={0.8}
+							>
+								<Text style={styles.nextButtonText}>Get Started</Text>
+							</TouchableOpacity>
+
+							{/* Home Indicator */}
+							<View style={styles.homeIndicator} />
+						</View>
+					</SafeAreaView>
 				</View>
-
-				<View style={styles.content}>
-					<View
-						style={[
-							styles.iconBadge,
-							{
-								backgroundColor: colors.primary,
-								shadowColor: colors.cardShadow,
-							},
-						]}>
-						<Shield color={colors.primaryText} size={32} strokeWidth={2.2} />
-					</View>
-
-					<ThemedText variant="title" style={styles.title}>
-						Sentinel View
-					</ThemedText>
-					<ThemedText muted style={styles.subtitle} numberOfLines={2}>
-						Smart monitoring for peace of mind. Secure your world, anywhere.
-					</ThemedText>
-
-					<ThemedButton
-						label="Get Started"
-						onPress={onGetStarted}
-						variant="primary"
-						style={styles.primaryCta}
-					/>
-					<ThemedButton
-						label="I have an account"
-						variant="secondary"
-						onPress={onHaveAccount}
-					/>
-				</View>
-			</ScrollView>
-		</SafeAreaView>
+			</ImageBackground>
+		</View>
 	);
-};
+}
 
 const styles = StyleSheet.create({
+	container: {
+		flex: 1,
+	},
+	logo:{
+		width:130,
+		height:120
+	},
+	backgroundImage: {
+		flex: 1,
+		width: width,
+		height: height,
+	},
+	overlay: {
+		flex: 1,
+		// backgroundColor: 'rgba(255, 255, 255, 0.7)', // White overlay for better text visibility
+	},
 	safeArea: {
 		flex: 1,
 	},
-	scrollContent: {
-		flexGrow: 1,
-		paddingBottom: 32,
-	},
-	heroContainer: {
-		height: 370,
-		overflow: 'hidden',
-		borderBottomLeftRadius: 36,
-		borderBottomRightRadius: 36,
-	},
-	heroImage: {
+	contentContainer: {
 		flex: 1,
-		width: '100%',
+		paddingHorizontal: 24,
+		paddingBottom: 20,
+		justifyContent: 'flex-end',
 	},
-	content: {
+	spacer: {
+		flex: 1,
+	},
+	textContainer: {
 		alignItems: 'center',
-		paddingHorizontal: 28,
-		paddingTop: 18,
-	},
-	iconBadge: {
-		width: 80,
-		height: 80,
+		marginBottom: 0,
+		// backgroundColor: 'rgba(255, 255, 255, 0.9)',
+		paddingVertical: 20,
+		paddingHorizontal: 20,
 		borderRadius: 20,
-		alignItems: 'center',
-		justifyContent: 'center',
-		marginBottom: 18,
-		shadowOpacity: 0.2,
-		shadowRadius: 10,
-		shadowOffset: { width: 0, height: 8 },
-		elevation: 6,
 	},
 	title: {
+		fontSize: 28,
+		fontWeight: '400',
+		color: '#333',
 		textAlign: 'center',
 	},
 	subtitle: {
+		fontSize: 36,
+		fontWeight: '700',
+		color: '#000',
 		textAlign: 'center',
-		marginTop: 10,
-		fontSize: 16,
-		lineHeight: 24,
+		marginTop: 4,
 	},
-	primaryCta: {
-		marginTop: 28,
-		marginBottom: 12,
-		alignSelf: 'stretch',
+	description: {
+		fontSize: 15,
+		color: '#666',
+		textAlign: 'center',
+		lineHeight: 22,
+		marginTop: 12,
+		paddingHorizontal: 10,
+	},
+	nextButton: {
+		width: '100%',
+		backgroundColor: '#000',
+		paddingVertical: 18,
+		borderRadius: 30,
+		alignItems: 'center',
+		justifyContent: 'center',
+		marginBottom: 16,
+		shadowColor: '#000',
+		shadowOffset: { width: 0, height: 4 },
+		shadowOpacity: 0.3,
+		shadowRadius: 8,
+		elevation: 6,
+	},
+	nextButtonText: {
+		color: '#fff',
+		fontSize: 18,
+		fontWeight: '600',
+		letterSpacing: 0.5,
+	},
+	homeIndicator: {
+		width: 140,
+		height: 2,
+		backgroundColor: '#000',
+		borderRadius: 3,
+		alignSelf: 'center',
+		marginBottom: 8,
 	},
 });
-
-export default WelcomeScreen;

@@ -1,365 +1,597 @@
-import React, { useMemo } from 'react';
+import React, { useState, useRef } from 'react';
 import {
-  FlatList,
-  ImageBackground,
-  StatusBar,
-  StyleSheet,
-  TextInput,
-  View,
-  Pressable,
+	View,
+	Text,
+	TouchableOpacity,
+	StyleSheet,
+	StatusBar,
+	Image,
+	Dimensions,
+	TextInput,
+	Animated,
+	ImageBackground,
+	ImageSourcePropType
 } from 'react-native';
-import {
-  Bell,
-  CalendarDays,
-  Grid,
-  Home,
-  Menu,
-  Mic,
-  Play,
-  Search,
-  Settings,
-  Share2,
-  Video,
-} from 'lucide-react-native';
-
-import ThemedText from '../../components/ThemedText';
-import { useThemeColors } from '../../theme/useTheme';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import bg1 from '../../../assets/img/bg3.png';
+import camImg from '../../../assets/img/a.jpeg';
+import { CirclePlay, Ellipsis, Search, MessageCircleMore, CirclePlus, Menu } from "lucide-react-native";
+import { RootRoutes, RootStackParamList } from '../../navigation/routes';
 
-type DeviceState = 'recording' | 'idle' | 'motion' | 'offline' | 'error';
+const { width } = Dimensions.get('window');
+
+export type Camera = {
+	id: number;
+	name: string;
+	thumbnail: ImageSourcePropType;
+};
 
 export type Device = {
-  id: string;
-  name: string;
-  status: string;
-  state: DeviceState;
-  image: string;
+	id: number;
+	name: string;
+	cameras: Camera[];
+	totalCameras: number;
 };
 
-const DEVICES: Device[] = [
-  {
-    id: '8C293A10',
-    name: 'Driveway Cam',
-    status: 'Recording • 10:42 AM',
-    state: 'recording',
-    image: 'https://images.unsplash.com/photo-1503736334956-4c8f8e92946d?auto=format&fit=crop&w=1200&q=80',
-  },
-  {
-    id: '5B142D99',
-    name: 'Living Room',
-    status: 'Offline • Last seen 2h ago',
-    state: 'offline',
-    image: 'https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?auto=format&fit=crop&w=1200&q=80',
-  },
-  {
-    id: '9F728B44',
-    name: 'Backyard',
-    status: 'Motion Detected',
-    state: 'motion',
-    image: 'https://images.unsplash.com/photo-1464983953574-0892a716854b?auto=format&fit=crop&w=1200&q=80',
-  },
-  {
-    id: 'A4556C71',
-    name: 'Garage',
-    status: 'Idle • 10:42 AM',
-    state: 'idle',
-    image: 'https://images.unsplash.com/photo-1582719478248-3dd3c2b64c2e?auto=format&fit=crop&w=1200&q=80',
-  },
-  {
-    id: '2E991A03',
-    name: 'Porch',
-    status: 'Person Detected',
-    state: 'motion',
-    image: 'https://images.unsplash.com/photo-1523419400524-223f97e5c783?auto=format&fit=crop&w=1200&q=80',
-  },
-  {
-    id: '6D442E11',
-    name: 'Baby Monitor',
-    status: 'Error • Check Connection',
-    state: 'error',
-    image: 'https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=1200&q=80',
-  },
-];
+type Props = NativeStackScreenProps<RootStackParamList, RootRoutes.Devices>;
 
-type Props = {
-  onDevicePress?: (device: Device) => void;
-};
+export default function DeviceListScreen({ navigation }: Props) {
+	const [selectedTab, setSelectedTab] = useState('All');
+	const [activeBottomTab, setActiveBottomTab] = useState('Home');
+	const [searchText, setSearchText] = useState('');
 
-const DeviceListScreen: React.FC<Props> = ({ onDevicePress }) => {
-  const colors = useThemeColors();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+	const scrollY = useRef(new Animated.Value(0)).current;
+	const HEADER_SEARCH_HEIGHT = 120;
 
-  const statusColor = (state: DeviceState) => {
-    switch (state) {
-      case 'recording':
-      case 'motion':
-        return colors.success;
-      case 'offline':
-      case 'error':
-        return colors.danger;
-      default:
-        return colors.warning;
-    }
-  };
+	const headerHeight = scrollY.interpolate({
+		inputRange: [0, 80],
+		outputRange: [HEADER_SEARCH_HEIGHT, 0],
+		extrapolate: 'clamp',
+	});
 
-  const renderDevice = ({ item }: { item: Device }) => (
-    <View style={[styles.card, { backgroundColor: colors.surface, shadowColor: colors.cardShadow }]}>
-      <ImageBackground source={{ uri: item.image }} style={styles.cardImage} imageStyle={styles.cardImageStyle}>
-        <View style={styles.overlay} />
-        <View style={styles.cardHeader}>
-          <View style={styles.nameRow}>
-            <View style={[styles.statusDot, { backgroundColor: statusColor(item.state) }]} />
-            <ThemedText style={styles.cardTitle}>{item.name}</ThemedText>
-          </View>
-          <View style={[styles.iconBadge, { backgroundColor: colors.overlayMedium }]}>
-            <Settings color={colors.primaryText} size={18} strokeWidth={2.2} />
-          </View>
-        </View>
+	const headerOpacity = scrollY.interpolate({
+		inputRange: [0, 40, 80],
+		outputRange: [1, 0.3, 0],
+		extrapolate: 'clamp',
+	});
 
-        <ThemedText muted style={styles.cardSubtitle}>
-          {item.status}
-        </ThemedText>
 
-        <View style={styles.centerPlay}>
-          <Pressable onPress={() => onDevicePress?.(item)}>
-            <View style={[styles.playButton, { backgroundColor: colors.primary }]}>
-              <Play color={colors.primaryText} size={28} />
-            </View>
-          </Pressable>
-        </View>
+	const devices: Device[] = [
+		{
+			id: 1,
+			name: 'BERYL 1',
+			cameras: [
+				{ id: 1, name: 'DHI-NVR42381A...', thumbnail: camImg },
+			],
+			totalCameras: 28
+		},
+		{
+			id: 2,
+			name: 'BERYL 1',
+			cameras: [
+				{ id: 1, name: 'DHI-NVR42381A...', thumbnail: camImg },
+			],
+			totalCameras: 28
+		},
+		{
+			id: 3,
+			name: 'BERYL 1',
+			cameras: [
+				{ id: 1, name: 'DHI-NVR42381A...', thumbnail: camImg },
+			],
+			totalCameras: 28
+		},
+	];
 
-        <View style={styles.sideActions}>
-          <View style={[styles.actionIcon, { backgroundColor: colors.overlayMedium }]}>
-            <Mic color={colors.primaryText} size={18} />
-          </View>
-          <View style={[styles.actionIcon, { backgroundColor: colors.overlayMedium }]}>
-            <Bell color={colors.primaryText} size={18} />
-          </View>
-          <View style={[styles.actionIcon, { backgroundColor: colors.overlayMedium }]}>
-            <Video color={colors.primaryText} size={18} />
-          </View>
-          <View style={[styles.actionIcon, { backgroundColor: colors.overlayMedium }]}>
-            <Share2 color={colors.primaryText} size={18} />
-          </View>
-        </View>
-      </ImageBackground>
-      <ThemedText muted style={styles.deviceId}>
-        ID: {item.id}
-      </ThemedText>
-    </View>
-  );
+	return (
 
-  return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
-      <StatusBar barStyle="dark-content" />
-      <FlatList
-        data={DEVICES}
-        keyExtractor={item => item.id}
-        renderItem={renderDevice}
-        contentContainerStyle={styles.listContent}
-        ListHeaderComponent={
-          <>
-            <View style={styles.header}>
-              <ThemedText variant="title" style={styles.headerTitle}>
-                My Devices
-              </ThemedText>
-              <View style={styles.headerIcons}>
-                <Grid color={colors.text} size={22} />
-                <Menu color={colors.text} size={22} />
-              </View>
-            </View>
+		<ImageBackground
+			source={bg1} // change path
+			style={styles.bg}
+			resizeMode="cover"
+		>
 
-            <View style={[styles.searchBar, { backgroundColor: colors.surface, shadowColor: colors.cardShadow }]}>
-              <Search color={colors.mutedText} size={18} />
-              <TextInput
-                placeholder="Search devices..."
-                placeholderTextColor={colors.placeholder}
-                style={[styles.searchInput, { color: colors.text }]}
-              />
-            </View>
+			<SafeAreaView style={styles.container}>
+				<StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
-            <View style={styles.tabsRow}>
-              <ThemedText style={[styles.tabText, { color: colors.primary }]}>All</ThemedText>
-              <ThemedText style={[styles.tabTextMuted, { color: colors.mutedText }]}>Favorites</ThemedText>
-              <ThemedText style={[styles.tabTextMuted, { color: colors.mutedText }]}>Offline</ThemedText>
-            </View>
-          </>
-        }
-        ListFooterComponent={
-          <View style={styles.bottomNav}>
-            <View style={styles.navItem}>
-              <Home color={colors.primary} size={22} />
-              <ThemedText style={[styles.navLabel, { color: colors.primary }]}>Home</ThemedText>
-            </View>
-            <View style={styles.navItem}>
-              <CalendarDays color={colors.mutedText} size={22} />
-              <ThemedText muted style={styles.navLabel}>Events</ThemedText>
-            </View>
-            <View style={styles.navItem}>
-              <Settings color={colors.mutedText} size={22} />
-              <ThemedText muted style={styles.navLabel}>Settings</ThemedText>
-            </View>
-          </View>
-        }
-        showsVerticalScrollIndicator={false}
-      />
-    </SafeAreaView>
-  );
-};
+				<Animated.View
+					style={[
+						styles.collapsibleHeader,
+						{
+							height: headerHeight,
+							opacity: headerOpacity,
+						},
+					]}
+				>
+					{/* Header */}
+					<View style={styles.header}>
+						<Text style={styles.headerTitle}>My Device</Text>
+						<View style={styles.headerRight}>
+							<TouchableOpacity style={styles.headerIconButton}>
+								<MessageCircleMore />
+							</TouchableOpacity>
+							<TouchableOpacity style={styles.headerIconButton}>
+								<CirclePlus />
+							</TouchableOpacity>
+						</View>
+					</View>
 
-const createStyles = (colors: ReturnType<typeof useThemeColors>) =>
-  StyleSheet.create({
-    safeArea: { flex: 1 },
-    listContent: { paddingHorizontal: 14, paddingBottom: 16 },
-    header: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: 12,
-    },
-    headerTitle: {
-      fontSize: 22,
-      fontWeight: '700',
-    },
-    headerIcons: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 14,
-    },
-    searchBar: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: 12,
-      paddingVertical: 10,
-      borderRadius: 14,
-      shadowOpacity: 0.08,
-      shadowRadius: 10,
-      shadowOffset: { width: 0, height: 6 },
-      elevation: 4,
-    },
-    searchInput: {
-      flex: 1,
-      marginLeft: 10,
-      fontSize: 15,
-    },
-    tabsRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'flex-start',
-      paddingVertical: 12,
-      gap: 18,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.divider,
-    },
-    tabText: {
-      fontSize: 14,
-      fontWeight: '700',
-    },
-    tabTextMuted: {
-      fontSize: 14,
-      fontWeight: '600',
-    },
-    card: {
-      borderRadius: 16,
-      marginTop: 14,
-      overflow: 'hidden',
-      shadowOpacity: 0.12,
-      shadowRadius: 12,
-      shadowOffset: { width: 0, height: 8 },
-      elevation: 6,
-    },
-    cardImage: {
-      height: 210,
-      borderTopLeftRadius: 16,
-      borderTopRightRadius: 16,
-    },
-    cardImageStyle: {
-      borderTopLeftRadius: 16,
-      borderTopRightRadius: 16,
-    },
-    overlay: {
-      ...StyleSheet.absoluteFillObject,
-      backgroundColor: colors.overlayStrong,
-    },
-    cardHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingHorizontal: 12,
-      paddingTop: 10,
-    },
-    nameRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-    },
-    statusDot: {
-      width: 8,
-      height: 8,
-      borderRadius: 4,
-    },
-    cardTitle: {
-      fontSize: 17,
-      fontWeight: '700',
-      color: colors.primaryText,
-    },
-    cardSubtitle: {
-      color: colors.primaryText,
-      paddingHorizontal: 12,
-      marginTop: 2,
-    },
-    iconBadge: {
-      width: 34,
-      height: 34,
-      borderRadius: 17,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    centerPlay: {
-      alignItems: 'center',
-      marginTop: 22,
-    },
-    playButton: {
-      width: 56,
-      height: 56,
-      borderRadius: 28,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    sideActions: {
-      position: 'absolute',
-      right: 8,
-      top: 64,
-      gap: 8,
-      alignItems: 'center',
-    },
-    actionIcon: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    deviceId: {
-      paddingHorizontal: 12,
-      paddingVertical: 8,
-    },
-    bottomNav: {
-      marginTop: 18,
-      borderTopWidth: 1,
-      borderTopColor: colors.divider,
-      paddingVertical: 12,
-      flexDirection: 'row',
-      justifyContent: 'space-around',
-    },
-    navItem: {
-      alignItems: 'center',
-      gap: 4,
-    },
-    navLabel: {
-      fontSize: 12,
-      fontWeight: '600',
-    },
-  });
+					{/* Search Bar */}
+					<View style={styles.searchContainer}>
+						<View style={styles.searchBar}>
+							<Search color="#c3c1c1" size={20} />
+							<TextInput
+								style={styles.searchInput}
+								placeholder="Search for devices by name or SN"
+								placeholderTextColor="#aaa"
+								value={searchText}
+								onChangeText={setSearchText}
+							/>
+						</View>
+					</View>
+				</Animated.View>
 
-export default DeviceListScreen;
+				{/* Tabs and Controls */}
+				<View style={styles.tabsRow}>
+					<View style={styles.tabs}>
+						<TouchableOpacity
+							style={styles.tab}
+							onPress={() => setSelectedTab('All')}
+						>
+							<Text style={[styles.tabText, selectedTab === 'All' && styles.tabTextActive]}>
+								All
+							</Text>
+							{selectedTab === 'All' && <View style={styles.tabIndicator} />}
+						</TouchableOpacity>
+						<TouchableOpacity
+							style={styles.tab}
+							onPress={() => setSelectedTab('Favorites')}
+						>
+							<Text style={[styles.tabText, selectedTab === 'Favorites' && styles.tabTextInactive]}>
+								Favorites
+							</Text>
+						</TouchableOpacity>
+					</View>
+
+					<View style={styles.controls}>
+						{/* <TouchableOpacity style={styles.multiWindowBtn}>
+							<Text style={styles.playIconSmall}>▶</Text>
+							<Text style={styles.multiWindowText}>Multi-Window</Text>
+						</TouchableOpacity> */}
+						<TouchableOpacity style={styles.hamburgerBtn}>
+							<Menu />
+						</TouchableOpacity>
+					</View>
+				</View>
+
+				{/* Device List */}
+
+				<Animated.ScrollView
+					style={styles.scrollView}
+					contentContainerStyle={styles.scrollContent}
+					showsVerticalScrollIndicator={false}
+					scrollEventThrottle={16}
+					onScroll={Animated.event(
+						[{ nativeEvent: { contentOffset: { y: scrollY } } }],
+						{ useNativeDriver: false } // must be false because we animate height
+					)}
+				>
+
+					{devices.map((device) => (
+						<View key={device.id} style={styles.deviceCardShadow}>
+							<View style={styles.deviceCard}>
+								{/* Device Header */}
+								<View style={styles.deviceHeader}>
+									<Text style={styles.deviceName}>{device.cameras[0].name}</Text>
+
+									<View style={styles.deviceHeaderActions}>
+										<TouchableOpacity style={styles.deviceMoreBtn}>
+											<CirclePlay size={28} strokeWidth={1.50} />
+										</TouchableOpacity>
+										<TouchableOpacity style={styles.deviceMoreBtn}>
+											<Ellipsis strokeWidth={1.50} />
+										</TouchableOpacity>
+									</View>
+								</View>
+								<View style={styles.sectionDivider} />
+
+								{/* Camera Grid - Single Column */}
+								<View style={styles.cameraList}>
+									{device.cameras.map((camera) => (
+										<View key={camera.id} style={styles.cameraItem}>
+											<View style={styles.cameraThumbnailContainer}>
+												<Image
+													source={camera.thumbnail}
+													style={styles.cameraThumbnail}
+													resizeMode="cover"
+												/>
+												<TouchableOpacity
+													style={styles.cameraPlayOverlay}
+													onPress={() => navigation.navigate(RootRoutes.Preview)}
+												>
+													<View style={styles.cameraPlayButton}>
+														<Text style={styles.cameraPlayIcon}>▶</Text>
+													</View>
+												</TouchableOpacity>
+											</View>
+										</View>
+									))}
+								</View>
+
+							</View>
+						</View>
+					))}
+
+					<View style={styles.footerTextContainer}>
+						<Text style={styles.footerText}>Security at Fingertips</Text>
+					</View>
+
+					{/* </ScrollView> */}
+				</Animated.ScrollView>
+
+
+				{/* Bottom Navigation */}
+				<View style={styles.bottomNav}>
+					<TouchableOpacity
+						style={styles.bottomNavItem}
+						onPress={() => setActiveBottomTab('Home')}
+					>
+						<Text style={styles.bottomNavIcon}>🏠</Text>
+						<Text style={[
+							styles.bottomNavLabel,
+							activeBottomTab === 'Home' && styles.bottomNavLabelActive
+						]}>
+							Home
+						</Text>
+					</TouchableOpacity>
+
+					<TouchableOpacity
+						style={styles.bottomNavItem}
+						onPress={() => setActiveBottomTab('Events')}
+					>
+						<Text style={[styles.bottomNavIcon, styles.bottomNavIconInactive]}>📅</Text>
+						<Text style={styles.bottomNavLabel}>Events</Text>
+					</TouchableOpacity>
+
+					<TouchableOpacity
+						style={styles.bottomNavItem}
+						onPress={() => setActiveBottomTab('Me')}
+					>
+						<Text style={[styles.bottomNavIcon, styles.bottomNavIconInactive]}>👤</Text>
+						<Text style={styles.bottomNavLabel}>Me</Text>
+					</TouchableOpacity>
+				</View>
+			</SafeAreaView>
+		</ImageBackground>
+
+
+	);
+}
+
+const styles = StyleSheet.create({
+	bg: {
+		flex: 1,
+	},
+	container: {
+		flex: 1,
+		backgroundColor: 'transparent',
+	},
+	header: {
+		flexDirection: 'row',
+		justifyContent: 'space-between',
+		alignItems: 'center',
+		paddingHorizontal: 20,
+		paddingTop: 12,
+		paddingBottom: 12,
+	},
+	headerTitle: {
+		fontSize: 20,
+		fontWeight: '400',
+		color: '#000',
+	},
+	headerRight: {
+		flexDirection: 'row',
+		gap: 10,
+	},
+	headerIconButton: {
+		paddingHorizontal: 5,
+		justifyContent: 'center',
+		alignItems: 'center',
+		
+	},
+	headerIconText: {
+		fontSize: 18,
+	},
+	searchContainer: {
+		paddingHorizontal: 20,
+		paddingVertical: 5,
+	},
+	searchBar: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		backgroundColor: '#fff',
+		borderRadius: 25,
+		paddingHorizontal: 16,
+		height: 38,
+		shadowColor: '#000',
+		shadowOffset: { width: 0, height: 1 },
+		shadowOpacity: 0.05,
+		shadowRadius: 2,
+		elevation: 1,
+	},
+	searchIcon: {
+
+		marginRight: 10,
+	},
+	searchInput: {
+		flex: 1,
+		fontSize: 13,
+		color: '#333',
+		paddingLeft: 5
+	},
+	tabsRow: {
+		flexDirection: 'row',
+		justifyContent: 'space-between',
+		alignItems: 'center',
+		paddingHorizontal: 20,
+		paddingVertical: 12,
+	},
+	tabs: {
+		flexDirection: 'row',
+		gap: 24,
+	},
+	tab: {
+		paddingBottom: 4,
+		position: 'relative',
+	},
+	tabText: {
+		fontSize: 16,
+		fontWeight: '600',
+	},
+	tabTextActive: {
+		color: '#000',
+	},
+	tabTextInactive: {
+		color: '#999',
+	},
+	tabIndicator: {
+		position: 'absolute',
+		bottom: 0,
+		left: 0,
+		right: 0,
+		height: 2.5,
+		backgroundColor: '#2196F3',
+	},
+	controls: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 12,
+	},
+	multiWindowBtn: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		backgroundColor: '#f0f0f0',
+		paddingHorizontal: 10,
+		paddingVertical: 6,
+		borderRadius: 5,
+		gap: 5,
+	},
+	playIconSmall: {
+		fontSize: 10,
+		color: '#000',
+	},
+	multiWindowText: {
+		fontSize: 13,
+		color: '#000',
+		fontWeight: '500',
+	},
+	hamburgerBtn: {
+		padding: 4,
+	},
+	hamburgerIcon: {
+		fontSize: 24,
+		color: '#000',
+	},
+	scrollView: {
+		flex: 1,
+	},
+	scrollContent: {
+		paddingBottom: 20,
+	},
+
+	deviceCardShadow: {
+		marginHorizontal: 16,
+		borderRadius: 16,
+		shadowColor: '#000',
+		shadowOffset: { width: 0, height: 2 },
+		shadowOpacity: 0.08,
+		shadowRadius: 8,
+		elevation: 3,
+		backgroundColor: 'transparent',
+		marginTop: 15,
+	},
+
+	deviceCard: {
+		backgroundColor: '#fff',
+		borderRadius: 16,
+		overflow: 'hidden',  // ✅ clips corners perfectly
+	},
+
+	deviceHeader: {
+		flexDirection: 'row',
+		justifyContent: 'space-between',
+		alignItems: 'center',
+		padding: 10,
+	},
+	deviceName: {
+		fontSize: 15,
+		fontWeight: '500',
+		color: '#000',
+	},
+	deviceHeaderActions: {
+		flexDirection: 'row',
+		gap: 12,
+	},
+
+	devicePlayIcon: {
+		fontSize: 12,
+		// color: '#000',
+		marginLeft: 2,
+	},
+	deviceMoreBtn: {
+		width: 30,
+		justifyContent: 'center',
+		alignItems: 'center',
+	},
+	deviceMoreIcon: {
+		fontSize: 22,
+		color: '#000',
+		fontWeight: 'bold',
+	},
+	cameraList: {
+		gap: 12,
+		paddingLeft: 10,
+		paddingRight: 10,
+		paddingBottom: 10
+	},
+	cameraItem: {
+		overflow: 'hidden',
+		backgroundColor: 'transparent',
+		elevation: 0,
+		padding: 0,
+	},
+	cameraThumbnailContainer: {
+		position: 'relative',
+		width: '100%',
+		height: width * 0.5,
+	},
+	cameraThumbnail: {
+		width: '100%',
+		height: '100%',
+		borderRadius: 12,
+		shadowColor: '#000',
+		shadowOffset: { width: 0, height: 1 },
+		shadowOpacity: 0.05,
+		shadowRadius: 3,
+	},
+	cameraPlayOverlay: {
+		position: 'absolute',
+		top: 0,
+		left: 0,
+		right: 0,
+		bottom: 0,
+		justifyContent: 'center',
+		alignItems: 'center',
+	},
+	cameraPlayButton: {
+		width: 56,
+		height: 56,
+		borderRadius: 28,
+		backgroundColor: 'rgba(0, 0, 0, 0.6)',
+		justifyContent: 'center',
+		alignItems: 'center',
+	},
+	cameraPlayIcon: {
+		fontSize: 20,
+		color: '#fff',
+		marginLeft: 3,
+	},
+	cameraInfo: {
+		flexDirection: 'row',
+		justifyContent: 'space-between',
+		alignItems: 'center',
+		padding: 12,
+		backgroundColor: '#fff',
+	},
+	cameraName: {
+		fontSize: 14,
+		color: '#333',
+		flex: 1,
+	},
+	cameraMoreBtn: {
+		padding: 4,
+	},
+	cameraMoreIcon: {
+		fontSize: 18,
+		color: '#666',
+	},
+	showMoreBtn: {
+		alignItems: 'center',
+		paddingVertical: 12,
+		marginTop: 8,
+	},
+	showMoreText: {
+		fontSize: 14,
+		color: '#999',
+	},
+	bottomNav: {
+		flexDirection: 'row',
+		backgroundColor: '#fff',
+		borderTopWidth: 1,
+		borderTopColor: '#e0e0e0',
+		paddingVertical: 8,
+	},
+	bottomNavItem: {
+		flex: 1,
+		alignItems: 'center',
+		paddingVertical: 4,
+	},
+	bottomNavIcon: {
+		fontSize: 24,
+		marginBottom: 2,
+	},
+	bottomNavIconInactive: {
+		opacity: 0.4,
+	},
+	bottomNavLabel: {
+		fontSize: 11,
+		color: '#999',
+	},
+	bottomNavLabelActive: {
+		color: '#ff6b35',
+		fontWeight: '600',
+	},
+	systemNav: {
+		flexDirection: 'row',
+		justifyContent: 'space-around',
+		backgroundColor: '#fff',
+		paddingVertical: 8,
+		borderTopWidth: 1,
+		borderTopColor: '#e0e0e0',
+	},
+	systemNavBtn: {
+		padding: 8,
+	},
+	systemNavIcon: {
+		fontSize: 20,
+		color: '#888',
+	},
+
+	collapsibleHeader: {
+		overflow: 'hidden',
+	},
+	sectionDivider: {
+		height: 1,
+		backgroundColor: 'rgba(0,0,0,0.08)',
+		marginHorizontal: 0,
+		marginBottom: 12,
+	},
+	slogan: {
+		alignItems: 'center',
+		justifyContent: 'center',
+
+	},
+	footerTextContainer: {
+		alignItems: 'center',
+		justifyContent: 'center',
+		padding: 10
+	},
+
+	footerText: {
+		fontSize: 12,
+		color: '#9e9e9e',
+		fontWeight: '400',
+	},
+
+});

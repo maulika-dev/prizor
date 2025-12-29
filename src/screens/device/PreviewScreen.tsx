@@ -11,7 +11,6 @@ import {
 	Image,
 	Pressable
 } from 'react-native';
-import { useFocusEffect } from "@react-navigation/native";
 import {
 	RTCPeerConnection,
 	RTCIceCandidate,
@@ -26,6 +25,9 @@ import { ZoomIn, ZoomOut, Camera, Video as VideoIcon, Mic, ChevronDown, ChevronL
 import { useThemeColors } from '../../theme/useTheme';
 import ViewShot, { captureRef } from "react-native-view-shot";
 import { CameraRoll } from "@react-native-camera-roll/camera-roll";
+import Toast from '../../components/Toast';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { RootRoutes, RootStackParamList } from '../../navigation/routes';
 
 const { width, height } = Dimensions.get('window');
 
@@ -41,7 +43,9 @@ const MQTT_SUB_TOPIC = 'animals-publishTest1'; // answer + candidates inbound
 const ICE_SERVERS = [{ urls: 'stun:stun1.ap-in-1.anedya.io:3478' }];
 const ICE_GATHER_TIMEOUT_MS = 1500;
 
-export default function CameraPreviewScreen() {
+type Props = NativeStackScreenProps<RootStackParamList, RootRoutes.Preview>;
+
+export default function CameraPreviewScreen({ navigation }: Props) {
 	const colors = useThemeColors();
 	const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -63,6 +67,14 @@ export default function CameraPreviewScreen() {
 	const pendingCandidatesRef = useRef<RTCIceCandidate[]>([]);
 	const [lastShotUri, setLastShotUri] = useState<string | null>(null);
 	const thumbTimerRef = useRef<NodeJS.Timeout | null>(null);
+	const [toast, setToast] = useState<{ visible: boolean; msg: string }>({
+		visible: false,
+		msg: "",
+	});
+
+	const showToast = (msg: string) => {
+	setToast({ visible: true, msg });
+	};
 
 	const log = useCallback((msg: string) => {
 		const ts = new Date().toISOString().split('T')[1].replace('Z', '');
@@ -99,7 +111,6 @@ export default function CameraPreviewScreen() {
 	useEffect(() => {
 		start();
 		return () => cleanup();
-		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
 	useEffect(() => {
@@ -108,37 +119,14 @@ export default function CameraPreviewScreen() {
 		};
 	}, []);
 
-	// const captureScreenshot = async () => {
-	// 	try {
-	// 		if (!shotRef.current) {
-	// 			Alert.alert("Error", "Stream not ready");
-	// 			return;
-	// 		}
-
-	// 		const uri = await captureRef(shotRef.current, {
-	// 			format: "jpg",
-	// 			quality: 0.95,
-	// 			result: "tmpfile",
-	// 			handleGLSurfaceViewOnAndroid: true,
-	// 		});
-
-	// 		await CameraRoll.saveAsset(uri, { type: "photo", album: "NXON-Surveillance" });
-	// 		Alert.alert("Success", "Screenshot saved to gallery");
-	// 	} catch (err: any) {
-	// 		console.log("Screenshot error:", err);
-	// 		Alert.alert("Error", err?.message ?? "Screenshot failed");
-	// 	}
-	// };
-
-
 	const captureScreenshot = async () => {
 		try {
 			if (!shotRef.current) {
-				Alert.alert("Error", "Stream not ready");
+				showToast("Stream not ready");
 				return;
 			}
 			if (!streamUrl) {
-				Alert.alert("Error", "No stream");
+				showToast("No stream");
 				return;
 			}
 
@@ -151,16 +139,13 @@ export default function CameraPreviewScreen() {
 
 			// save to gallery
 			await CameraRoll.saveAsset(uri, { type: "photo", album: "NXON-Surveillance" });
+			showToast("Saved to album.");
 
-			// ✅ show thumbnail preview
 			setLastShotUri(uri);
 
-			// auto-hide after 3 sec
 			if (thumbTimerRef.current) clearTimeout(thumbTimerRef.current);
 			thumbTimerRef.current = setTimeout(() => setLastShotUri(null), 3000);
 
-			// optional toast
-			// Alert.alert("Saved", "Saved to album");
 			console.log("[NXON:SNAP] saved ->", uri);
 		} catch (err: any) {
 			console.log("[NXON:SNAP] error:", err);
@@ -346,15 +331,19 @@ export default function CameraPreviewScreen() {
 
 			{/* Header */}
 			<View style={styles.header}>
-				<TouchableOpacity style={styles.backButton}>
-					<ChevronLeft size={30} />
-				</TouchableOpacity>
+				<View style={styles.headerLeft}>
+					<TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+						<ChevronLeft size={30} />
+					</TouchableOpacity>
 
-				<View>
-					<Text style={styles.headerTitle}>Title</Text>
-					<Text style={styles.headerSub}>
-						MQTT: {mqttConnected ? 'Connected' : 'Disconnected'} • WebRTC: {webrtcConnected ? 'Streaming' : 'Idle'}
-					</Text>
+					<View>
+						<Text style={styles.headerTitle}>
+							Title
+						</Text>
+						{/* <Text style={styles.headerSub}>
+							MQTT: {mqttConnected ? 'Connected' : 'Disconnected'} • WebRTC: {webrtcConnected ? 'Streaming' : 'Idle'}
+						</Text> */}
+					</View>
 				</View>
 
 				<View style={styles.headerRight}>
@@ -398,7 +387,7 @@ export default function CameraPreviewScreen() {
 							</View>
 						)}
 
-						{/* ✅ ADD THUMBNAIL HERE (overlay on video) */}
+						
 						{lastShotUri && (
 							<Pressable style={styles.thumbWrap} onPress={() => setLastShotUri(null)}>
 								<Image source={{ uri: lastShotUri }} style={styles.thumbImg} />
@@ -458,8 +447,8 @@ export default function CameraPreviewScreen() {
 				</View>
 
 				<View style={styles.zoomControls}>
-					<TouchableOpacity style={styles.zoomButton}><ZoomIn /></TouchableOpacity>
-					<TouchableOpacity style={styles.zoomButton}><ZoomOut /></TouchableOpacity>
+					<TouchableOpacity style={styles.zoomButton}><ZoomIn size={22}/></TouchableOpacity>
+					<TouchableOpacity style={styles.zoomButton}><ZoomOut size={22}/></TouchableOpacity>
 					<Text style={styles.zoomLabel}>Zoom</Text>
 				</View>
 			</View>
@@ -480,6 +469,14 @@ export default function CameraPreviewScreen() {
 					<Text key={idx} style={styles.logText}>{line}</Text>
 				))}
 			</ScrollView> */}
+
+			<Toast
+				visible={toast.visible}
+				message={toast.msg}
+				durationMs={1400}
+				bottomOffset={350} // adjust so it sits above PTZ like your screenshot
+				onHide={() => setToast({ visible: false, msg: "" })}
+			/>
 
 		</SafeAreaView>
 	);
@@ -507,13 +504,28 @@ const createStyles = (colors: any) =>
 			alignItems: 'center',
 			justifyContent: 'space-between',
 			paddingHorizontal: 16,
-			paddingVertical: 12,
+			paddingVertical: 4,
 			backgroundColor: '#fff',
 			borderBottomWidth: 1,
 			borderBottomColor: '#e0e0e0',
 		},
-		backButton: { width: 40, height: 40, justifyContent: 'center' },
-		headerTitle: { fontSize: 16, fontWeight: '700', color: '#111' },
+		headerLeft: {
+			flexDirection: "row",
+			alignItems: "center",
+			gap: 10,
+			flex: 1,             
+		},
+		backButton: { 
+			width: 40, 
+			height: 40, 
+			justifyContent: 'center',
+		},
+		headerTitle: { 
+			fontSize: 15, 
+			fontWeight: '400', 
+			color: '#111', 
+			textTransform: 'uppercase',
+		},
 		headerSub: { fontSize: 12, color: '#666', marginTop: 2 },
 		headerRight: { flexDirection: 'row', gap: 4 },
 		iconButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
@@ -554,7 +566,7 @@ const createStyles = (colors: any) =>
 			alignItems: 'center',
 			paddingVertical: Math.max(height * 0.03, 20),
 			paddingHorizontal: 20,
-			backgroundColor: '#f0f0f0',
+			backgroundColor: '#f9f9f9',
 		},
 		ptzControl: {
 			width: Math.min(width * 0.55, 240),
@@ -578,10 +590,10 @@ const createStyles = (colors: any) =>
 		directionIcon: { fontSize: 22, color: '#615d5db7' },
 		centerCircle: { width: '50%', height: '50%', borderRadius: 1000, backgroundColor: '#f5f5f5' },
 
-		zoomControls: { alignItems: 'center', marginRight: -50, marginLeft: 20, gap: 8 },
+		zoomControls: { alignItems: 'center', marginRight: -50, marginLeft: 20, gap: 10 },
 		zoomButton: {
-			width: Math.min(width * 0.12, 40),
-			height: Math.min(width * 0.12, 40),
+			width: Math.min(width * 0.12, 35),
+			height: Math.min(width * 0.12, 35),
 			borderRadius: 50,
 			backgroundColor: '#fff',
 			justifyContent: 'center',
@@ -596,8 +608,8 @@ const createStyles = (colors: any) =>
 
 		tabBar: { flexDirection: 'row', backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#e8e8e8' },
 		tab: { flex: 1, paddingVertical: 14, alignItems: 'center', position: 'relative' },
-		tabText: { fontSize: 18, color: '#999', fontWeight: '800' },
-		tabTextActive: { color: colors.primary, fontWeight: '500' },
+		tabText: { fontSize: 16, color: '#999', fontWeight: '500' },
+		tabTextActive: { color: colors.primary, fontWeight: '800' },
 		tabIndicator: { position: 'absolute', bottom: 0, width: '30%', height: 2, backgroundColor: colors.primary },
 
 		logBox: {
