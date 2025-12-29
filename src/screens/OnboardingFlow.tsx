@@ -12,10 +12,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowRight } from 'lucide-react-native';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import ThemedButton from '../components/ThemedButton';
 import ThemedText from '../components/ThemedText';
 import { useThemeColors } from '../theme/useTheme';
+import { RootRoutes, RootStackParamList } from '../navigation/routes';
 
 type Slide = {
   id: string;
@@ -25,10 +27,7 @@ type Slide = {
   accent?: string;
 };
 
-type Props = {
-  onDone: () => void;
-  onBackToWelcome: () => void;
-};
+type Props = NativeStackScreenProps<RootStackParamList, RootRoutes.Onboarding>;
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -61,7 +60,7 @@ const slides: Slide[] = [
   },
 ];
 
-const OnboardingFlow: React.FC<Props> = ({ onDone, onBackToWelcome }) => {
+const OnboardingFlow: React.FC<Props> = ({ navigation }) => {
   const colors = useThemeColors();
   const listRef = useRef<FlatList<Slide>>(null);
   const [index, setIndex] = useState(0);
@@ -79,7 +78,7 @@ const OnboardingFlow: React.FC<Props> = ({ onDone, onBackToWelcome }) => {
 
   const handleNext = () => {
     if (isLast) {
-      onDone();
+      navigation.navigate(RootRoutes.Login);
       return;
     }
 
@@ -90,7 +89,7 @@ const OnboardingFlow: React.FC<Props> = ({ onDone, onBackToWelcome }) => {
 
   const handleBack = () => {
     if (index === 0) {
-      onBackToWelcome();
+      navigation.goBack();
       return;
     }
 
