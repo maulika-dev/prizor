@@ -54,7 +54,7 @@ export default function LoginScreen({ navigation }: Props) {
 				return;
 			}
 			
-			navigation.navigate('Otp', { mobile: trimmed });
+			navigation.navigate(RootRoutes.Otp, { mobile: trimmed });
 		} catch (err: any) {
 			console.error('check-auth unexpected error:', err?.message || err);
 			setError('Network error. Please try again.');

@@ -5,6 +5,9 @@ export enum RootRoutes {
 	Otp = 'Otp',
 	Devices = 'Devices',
 	Preview = 'Preview',
+	AppTabs = "AppTabs",
+	DeviceDetails= "DeviceDetails",
+	AccountSetting = "AccountSetting",
 }
 
 export type RootStackParamList = {
@@ -14,4 +17,13 @@ export type RootStackParamList = {
 	[RootRoutes.Otp]: { mobile: string };
 	[RootRoutes.Devices]: undefined;
 	[RootRoutes.Preview]: undefined;
+	[RootRoutes.AppTabs]: undefined;
+
+	[RootRoutes.DeviceDetails]: {
+		deviceId: string;
+		name: string;
+		status: "online" | "offline";
+		thumbnailUrl?: string;
+	};
+	[RootRoutes.AccountSetting]: undefined;
 };
