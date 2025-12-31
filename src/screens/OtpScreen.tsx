@@ -19,6 +19,7 @@ import { useThemeColors } from '../theme/useTheme';
 import { RootRoutes, RootStackParamList } from '../navigation/routes';
 import { setAuthToken } from '../store/authStore';
 import { resetToAddTab } from '../navigation/navigationRef';
+import { CommonActions } from "@react-navigation/native";
 
 type OtpScreenProps = NativeStackScreenProps<RootStackParamList, RootRoutes.Otp>;
 
@@ -32,8 +33,10 @@ const OtpScreen: React.FC<OtpScreenProps> = ({ navigation, route }) => {
 	const { mobile } = route.params;
 	const [resendLoading, setResendLoading] = useState(false);
 	const [loading, setLoading] = useState(false);
-	const [secondsLeft, setSecondsLeft] = useState(120);
 	const [error, setError] = useState<string | null>(null);
+
+	// const [otp, setOtp] = useState('');
+	const hiddenInputRef = useRef<TextInput>(null);
 
 	const handleChange = (value: string, index: number) => {
 		const sanitized = value.replace(/\D/g, '').slice(-1);
@@ -55,60 +58,71 @@ const OtpScreen: React.FC<OtpScreenProps> = ({ navigation, route }) => {
 	const joinedOtp = otp.join('');
 	const canVerify = joinedOtp.length === OTP_LENGTH;
 
-	 const onResend = async () => {
-        if (resendLoading || loading || secondsLeft > 0) return;
+	const onResend = async () => {
+		if (resendLoading || loading) return;
 
-        try {
-            setResendLoading(true);
-            setError(null);
+		try {
+			setResendLoading(true);
+			setError(null);
 
-            await sendLoginOtp({
-                mobile,
-                type: 'register',
-            });
+			const res = await sendLoginOtp({
+				mobile,
+				type: 'register',
+			});
 
-            setSecondsLeft(120);
-            
-        } catch {
-            setError('Failed to resend OTP. Please try again.');
-        } finally {
-            setResendLoading(false);
-        }
-    };
+			if (!res.success) {
+				setError(res.message || 'Failed to resend OTP');
+			}
+		} catch {
+			setError('Failed to resend OTP. Please try again.');
+		} finally {
+			setResendLoading(false);
+		}
+	};
 
-    const onSubmit = async () => {
-        if (otp.length < OTP_LENGTH) {
-            setError('Please enter the complete OTP');
-            return;
-        }
+	const onSubmit = async () => {
+		const joinedOtp = otp.join('');
 
-        try {
-            setLoading(true);
-            setError(null);
+		if (joinedOtp.length < OTP_LENGTH) {
+			setError('Please enter the complete OTP');
+			return;
+		}
 
-            const res = await verifyOtpAndSetPassword({
-                otp,
-                mobile,
-                // email,
-            });
+		try {
+			setLoading(true);
+			setError(null);
 
-            if (!res.success || !res.authToken) {
-                setError(res.message || 'OTP verification failed');
-                return;
-            }
+			console.log(joinedOtp);
 
-            if (res.authToken) {
-                await setAuthToken(res.authToken);
-            }
+			const res = await verifyOtpAndSetPassword({
+				otp: joinedOtp,
+				mobile,
+				// email,
+			});
 
-            // resetToDevices();
-            resetToAddTab();
-        } catch {
-            setError('Something went wrong. Please try again.');
-        } finally {
-            setLoading(false);
-        }
-    };
+			if (!res.success || !res.authToken) {
+				setError(res.message || 'OTP verification failed');
+				return;
+			}
+
+			if (res.authToken) {
+				await setAuthToken(res.authToken);
+			}
+
+			navigation.dispatch(
+				CommonActions.reset({
+					index: 0,
+					routes: [{ name: RootRoutes.AppTabs }],
+				})
+			);
+
+			// resetToAddTab();
+		} catch {
+			setError('Something went wrong. Please try again.');
+		} finally {
+			setLoading(false);
+		}
+	};
 
 	return (
 		<SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
@@ -174,6 +188,7 @@ const OtpScreen: React.FC<OtpScreenProps> = ({ navigation, route }) => {
 						))}
 					</View>
 
+
 					{/* Resend */}
 					<View style={styles.resendRow}>
 						<ThemedText muted style={styles.resendText}>
@@ -189,7 +204,7 @@ const OtpScreen: React.FC<OtpScreenProps> = ({ navigation, route }) => {
 					{/* Verify button */}
 					<ThemedButton
 						label="Verify"
-						onPress={() => navigation.navigate(RootRoutes.Devices)}
+						onPress={onSubmit}
 						disabled={!canVerify}
 						style={[
 							styles.verifyButton,
@@ -257,11 +272,11 @@ const createStyles = (colors: ReturnType<typeof useThemeColors>) =>
 		},
 
 		otpBox: {
-			width: 44,
-			height: 46,
+			width: 50,
+			height: 50,
 			borderWidth: 1,
 			borderRadius: 10,
-			fontSize: 18,
+			fontSize: 20,
 			fontWeight: '700',
 			backgroundColor: '#fff',
 
